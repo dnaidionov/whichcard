@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhichCard? - Credit Card Recommendation Tool</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-top: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .logo {
+            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #3498db;
+        }
+        .card-input {
+            margin-bottom: 20px;
+        }
+        .cards-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .card-tag {
+            background-color: #e8f4fc;
+            border: 1px solid #bee1f4;
+            padding: 5px 10px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .card-tag .remove {
+            cursor: pointer;
+            margin-left: 5px;
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .input-group {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .add-card-btn {
+            margin-left: 10px;
+        }
+        .recommendation {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f1f9f1;
+            border-left: 4px solid #2ecc71;
+            border-radius: 4px;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .view {
+            display: none;
+        }
+        .active {
+            display: block;
+        }
+        .instruction {
+            margin-bottom: 20px;
+            color: #7f8c8d;
+        }
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">WhichCard?</div>
+        
+        <!-- Card Input View -->
+        <div id="cardInputView" class="view active">
+            <h1>Welcome to WhichCard?</h1>
+            <p class="instruction">Please enter the credit cards you have. Only enter the names (e.g., "Chase Freedom", "Amex Gold").</p>
+            
+            <div class="input-group">
+                <input type="text" id="cardInput" placeholder="Enter card name...">
+                <button class="add-card-btn" onclick="addCard()">Add</button>
+            </div>
+            
+            <div id="cardsContainer" class="cards-container">
+                <!-- Cards will be added here -->
+            </div>
+            
+            <div class="error" id="cardError"></div>
+            
+            <button onclick="saveCardsAndContinue()">Continue</button>
+        </div>
+        
+        <!-- Merchant Input View -->
+        <div id="merchantView" class="view">
+            <h1>Where are you shopping?</h1>
+            <p class="instruction">Enter the merchant name, website, or type (e.g., "Trader Joe's", "amazon.com", "gas station")</p>
+            
+            <div class="input-group">
+                <input type="text" id="merchantInput" placeholder="Enter merchant...">
+                <button onclick="getRecommendation()">Get Recommendation</button>
+            </div>
+            
+            <div class="error" id="merchantError"></div>
+            
+            <div id="loader" class="loader"></div>
+            
+            <div id="recommendation" class="recommendation" style="display: none;">
+                <!-- Recommendation will appear here -->
+            </div>
+            
+            <button id="resetButton" onclick="resetMerchant()" style="display: none; margin-top: 15px;">Try Another Merchant</button>
+            <button onclick="editCards()" style="margin-top: 15px; background-color: #95a5a6;">Edit My Cards</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let listOfCards = [];
+        
+        // Initialize the app
+        window.onload = function() {
+            // Check if cards are already saved
+            const savedCards = localStorage.getItem('whichCardUserCards');
+            if (savedCards) {
+                listOfCards = savedCards.split(',').map(card => card.trim());
+                displayCards();
+                switchView('merchantView');
+            }
+        };
+        
+        // Add a new card to the list
+        function addCard() {
+            const cardInput = document.getElementById('cardInput');
+            const cardName = cardInput.value.trim();
+            
+            if (cardName === '') {
+                document.getElementById('cardError').textContent = 'Please enter a card name.';
+                return;
+            }
+            
+            if (!listOfCards.includes(cardName)) {
+                listOfCards.push(cardName);
+                displayCards();
+                cardInput.value = '';
+                document.getElementById('cardError').textContent = '';
+            } else {
+                document.getElementById('cardError').textContent = 'This card is already in your list.';
+            }
+        }
+        
+        // Display cards as tags
+        function displayCards() {
+            const cardsContainer = document.getElementById('cardsContainer');
+            cardsContainer.innerHTML = '';
+            
+            listOfCards.forEach(card => {
+                const cardTag = document.createElement('div');
+                cardTag.className = 'card-tag';
+                cardTag.innerHTML = `
+                    ${card}
+                    <span class="remove" onclick="removeCard('${card}')">&times;</span>
+                `;
+                cardsContainer.appendChild(cardTag);
+            });
+        }
+        
+        // Remove a card from the list
+        function removeCard(cardName) {
+            listOfCards = listOfCards.filter(card => card !== cardName);
+            displayCards();
+        }
+        
+        // Save cards and continue to merchant input
+        function saveCardsAndContinue() {
+            if (listOfCards.length === 0) {
+                document.getElementById('cardError').textContent = 'Please add at least one card.';
+                return;
+            }
+            
+            // Save cards to local storage
+            localStorage.setItem('whichCardUserCards', listOfCards.join(','));
+            
+            // Switch to merchant view
+            switchView('merchantView');
+        }
+        
+        // Get recommendation for merchant
+        function getRecommendation() {
+            const merchantInput = document.getElementById('merchantInput');
+            const merchantName = merchantInput.value.trim();
+            
+            if (merchantName === '') {
+                document.getElementById('merchantError').textContent = 'Please enter a merchant.';
+                return;
+            }
+            
+            document.getElementById('merchantError').textContent = '';
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('recommendation').style.display = 'none';
+            document.getElementById('resetButton').style.display = 'none';
+            
+            // Prepare data for API call
+            const requestData = {
+                store_input: merchantName,
+                user_input_cards: listOfCards.join(', ')
+            };
+            
+            // Call the API
+            fetch('https://api-lr.agent.ai/v1/agent/vf49clo4orltyuof/webhook/eede9ea1', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('loader').style.display = 'none';
+                
+                // Display recommendation
+                const recommendationDiv = document.getElementById('recommendation');
+                recommendationDiv.innerHTML = data.output || 'No specific recommendation available.';
+                recommendationDiv.style.display = 'block';
+                
+                // Show reset button
+                document.getElementById('resetButton').style.display = 'block';
+            })
+            .catch(error => {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('merchantError').textContent = 'Error getting recommendation. Please try again.';
+                console.error('Error:', error);
+            });
+        }
+        
+        // Reset merchant input
+        function resetMerchant() {
+            document.getElementById('merchantInput').value = '';
+            document.getElementById('recommendation').style.display = 'none';
+            document.getElementById('resetButton').style.display = 'none';
+        }
+        
+        // Edit cards
+        function editCards() {
+            switchView('cardInputView');
+        }
+        
+        // Switch between views
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(view => {
+                view.classList.remove('active');
+            });
+            document.getElementById(viewId).classList.add('active');
+        }
+    </script>
+</body>
+</html>
